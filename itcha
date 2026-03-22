@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>허세자 재화 계산기</title>
+    <style>
+        body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; padding: 20px; background-color: #f0f2f5; color: #333; }
+        .container { max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        h2 { text-align: center; margin-bottom: 20px; color: #1a1a1a; font-size: 20px; border-bottom: 2px solid #5c67f2; padding-bottom: 10px; }
+        
+        .tab-group { display: flex; gap: 5px; margin-bottom: 20px; background: #eee; padding: 5px; border-radius: 10px; }
+        .tab { flex: 1; text-align: center; padding: 10px; font-size: 13px; cursor: pointer; border-radius: 8px; font-weight: bold; color: #777; }
+        .tab.active { background: white; color: #5c67f2; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #666; }
+        input { width: 100%; padding: 12px; border: 1px solid #e1e4e8; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        button { flex: 2; padding: 15px; background-color: #5c67f2; color: white; border: none; border-radius: 12px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        button.reset { flex: 1; background-color: #adb5bd; color: white; }
+
+        .special-btn-area { margin-top: 15px; text-align: center; }
+        .special-link { font-size: 12px; color: #5c67f2; text-decoration: underline; cursor: pointer; background: none; border: none; padding: 5px; }
+        #preDrawArea { margin-top: 10px; padding: 15px; background: #fff9db; border-radius: 12px; display: none; border: 1px solid #ffec99; text-align: left; }
+        .draw-input-wrap { display: flex; gap: 10px; align-items: center; }
+        .draw-input-wrap input { flex: 1; padding: 8px; font-size: 14px; }
+        .draw-btn { padding: 8px 15px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; border: none; }
+        .draw-apply { background: #5c67f2; color: white; }
+        .draw-cancel { background: #adb5bd; color: white; }
+
+        #result { margin-top: 25px; padding: 20px; background: #f8faff; border-radius: 15px; display: none; border: 1px solid #eef2ff; }
+        .res-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; }
+        .res-val { font-weight: 800; color: #5c67f2; text-align: right; }
+        .info-txt { font-size: 11px; color: #999; margin-top: 8px; text-align: right; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>💎 허세자 재화 계산기</h2>
+    
+    <div class="tab-group">
+        <div id="tabA" class="tab active" onclick="switchMode('A')">수급량 예측</div>
+        <div id="tabB" class="tab" onclick="switchMode('B')">필요 날짜 계산</div>
+    </div>
+
+    <div class="input-group">
+        <label>현재 곡옥</label>
+        <input type="number" id="curG" placeholder="0" inputmode="numeric">
+    </div>
+    <div class="input-group">
+        <label>현재 꿈동력</label>
+        <input type="number" id="curM" placeholder="0" inputmode="numeric">
+    </div>
+
+    <div id="inputA" class="input-group">
+        <label>목표일까지 남은 기간(일)</label>
+        <input type="number" id="days" placeholder="일수를 입력하세요" inputmode="numeric">
+    </div>
+
+    <div id="inputB" class="input-group" style="display:none;">
+        <label>목표 영혼석 개수</label>
+        <input type="number" id="targetStone" placeholder="원하는 개수 입력" inputmode="numeric">
+    </div>
+
+    <div class="btn-group">
+        <button onclick="run()">계산하기</button>
+        <button class="reset" onclick="resetAll()">초기화</button>
+    </div>
+
+    <div class="special-btn-area">
+        <button class="special-link" id="mainLink" onclick="togglePreDraw(true)">곡옥으로 최초 뽑기 할 경우(횟수만큼 차감 계산)</button>
+        <div id="preDrawArea">
+            <label style="font-size: 12px; color: #856404; margin-bottom: 8px; display: block; font-weight: bold;">곡옥 뽑기 횟수 (1회당 30개)</label>
+            <div class="draw-input-wrap">
+                <input type="number" id="preDrawCount" placeholder="0" inputmode="numeric">
+                <button class="draw-btn draw-apply" onclick="applyPreDraw()">적용</button>
+                <button class="draw-btn draw-cancel" onclick="togglePreDraw(false)">취소</button>
+            </div>
+            <p id="drawStatus" style="font-size: 11px; color: #d9480f; margin-top: 8px; display: none; font-weight: bold;"></p>
+        </div>
+    </div>
+
+    <div id="result">
+        <div id="resTitle" style="font-weight:bold; margin-bottom:15px; color:#333; font-size: 16px;">📊 계산 결과</div>
+        <div id="resContent"></div>
+    </div>
+</div>
+
+<script>
+let currentMode = 'A';
+let appliedDrawCount = 0;
+
+function switchMode(mode) {
+    currentMode = mode;
+    document.getElementById('tabA').className = (mode === 'A' ? 'tab active' : 'tab');
+    document.getElementById('tabB').className = (mode === 'B' ? 'tab active' : 'tab');
+    document.getElementById('inputA').style.display = (mode === 'A' ? 'block' : 'none');
+    document.getElementById('inputB').style.display = (mode === 'B' ? 'block' : 'none');
+    document.getElementById('result').style.display = 'none';
+}
+
+function togglePreDraw(show) {
+    document.getElementById('preDrawArea').style.display = show ? 'block' : 'none';
+    document.getElementById('mainLink').style.display = show ? 'none' : 'inline-block';
+    if (!show) {
+        appliedDrawCount = 0;
+        document.getElementById('preDrawCount').value = '';
+        document.getElementById('drawStatus').style.display = 'none';
+        if(document.getElementById('result').style.display === 'block') run(); // 결과창 떠있으면 즉시 갱신
+    }
+}
+
+function applyPreDraw() {
+    const count = parseInt(document.getElementById('preDrawCount').value) || 0;
+    appliedDrawCount = count;
+    document.getElementById('drawStatus').innerText = `✅ 곡옥 ${count * 30}개 차감 적용됨`;
+    document.getElementById('drawStatus').style.display = 'block';
+    
+    // 결과창이 이미 열려 있다면 즉시 다시 계산하여 업데이트
+    if(document.getElementById('result').style.display === 'block') {
+        run();
+    }
+}
+
+function calculateGauge(g, m) {
+    const adjustedG = Math.max(0, g - (appliedDrawCount * 30));
+    const machineG = Math.floor(adjustedG / 10) * 10;
+    const machineM = Math.floor(m / 10) * 10;
+    
+    const setByG = Math.floor(machineG / 30);
+    const setByM = Math.floor(machineM / 10);
+    const maxSets = Math.min(setByG, setByM);
+    
+    const gauge = (maxSets * 5000) + ((machineM - (maxSets * 10)) * 100);
+    const leftoverG = (machineG - (maxSets * 30)) + (adjustedG % 10);
+    
+    return { gauge, leftoverG };
+}
+
+function run() {
+    const curG = parseInt(document.getElementById('curG').value) || 0;
+    const curM = parseInt(document.getElementById('curM').value) || 0;
+    const resultDiv = document.getElementById('result');
+    const content = document.getElementById('resContent');
+
+    if (currentMode === 'A') {
+        const days = parseInt(document.getElementById('days').value) || 0;
+        const totalG = curG + (30 * days);
+        const totalM = curM + (300 * days);
+        const res = calculateGauge(totalG, totalM);
+        
+        content.innerHTML = `
+            <div class="res-item">예상 영혼석 <span class="res-val">${(res.gauge / 60000).toFixed(2)} 개</span></div>
+            <div class="res-item">잔여 곡옥 <span class="res-val">${res.leftoverG} 개</span></div>
+            <div class="res-item">남은 곡옥으로 할 수 있는<br>뽑기 횟수 <span class="res-val">${Math.floor(res.leftoverG/30)} 회</span></div>
+        `;
+    } else {
+        const target = parseFloat(document.getElementById('targetStone').value) || 0;
+        const targetGauge = target * 60000;
+        let daysNeeded = 0;
+        let currentGauge = 0;
+
+        while (true) {
+            const testG = curG + (30 * daysNeeded);
+            const testM = curM + (300 * daysNeeded);
+            const res = calculateGauge(testG, testM);
+            if (res.gauge >= targetGauge || daysNeeded > 3650) {
+                currentGauge = res.gauge;
+                break;
+            }
+            daysNeeded++;
+        }
+        
+        content.innerHTML = `
+            <div class="res-item">목표 달성까지 <span class="res-val">최소 ${daysNeeded} 일</span></div>
+            <div class="res-item" style="border:none;">해당 날짜 예상 수급량 <span class="res-val">${(currentGauge / 60000).toFixed(2)} 개</span></div>
+            <div class="info-txt">* 매일 곡옥 30개, 꿈동력 300개 수급 기준</div>
+        `;
+    }
+    resultDiv.style.display = 'block';
+}
+
+function resetAll() {
+    document.querySelectorAll('input').forEach(i => i.value = '');
+    appliedDrawCount = 0;
+    togglePreDraw(false);
+    document.getElementById('result').style.display = 'none';
+}
+</script>
+
+</body>
+</html>
